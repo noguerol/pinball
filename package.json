@@ -28,5 +28,8 @@
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
-  }
+  },
+  "files": [
+    "src"
+  ]
 }

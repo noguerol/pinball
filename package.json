@@ -1,6 +1,6 @@
 {
   "name": "pi-pinball",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Automatic provider failover for pi: when the active model hits rate limits (429), payment/quota errors (402/403) or persistent 5xx, pinball transparently bounces the task to the next model in your bounce list and retries — including headless multi-agent runs.",
   "keywords": [
     "pi-package",
@@ -24,7 +24,8 @@
   "pi": {
     "extensions": [
       "./src/index.ts"
-    ]
+    ],
+    "image": "https://raw.githubusercontent.com/noguerol/pinball/main/docs/preview.png"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

@@ -1,3 +1,9 @@
+<div align="center">
+
+![Pinball banner](docs/banner.png)
+
+</div>
+
 # Pinball — Automatic Provider Failover for pi
 
 **Pinball keeps the ball in play.** When your active model hits a rate limit, runs out of quota/credits, or a provider has a persistent outage, pinball transparently **bounces the task to the next model** in your bounce list and retries — mid-conversation, without you lifting a finger.

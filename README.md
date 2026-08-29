@@ -62,7 +62,7 @@ pi remove git:github.com/noguerol/pinball
 That's it. The next time a provider returns `429 Too Many Requests` mid-task:
 
 ```
-🔄 pinball: provider/x agotó cuota/rate-limit. Reintentando la tarea con provider/y…
+🔄 provider/x → provider/y; retrying…
 ```
 
 … and the task continues on `provider/y`. A `🕹️ pinball(1)` marker in the status bar shows one model in cooldown.
@@ -143,15 +143,15 @@ The list re-renders after every action until you exit. Models in cooldown show �
 ### `/pinball status`
 
 ```
-State: ✅ ENABLED
-Active model: provider/x
-Bounce list: 3 models
+State: ✅ on
+Model: provider/x
+List: 3
 Retries: 1/9
-Consecutive failures: 0
-In cooldown: 1
+Streak: 0
+Cooldowns: 1
 Cooldown: 60s
 Original: provider/x
-Last bounce: provider/x → provider/y (quota, 2m ago)
+Last: provider/x → provider/y (rate-limit/quota, 2m ago)
 ```
 
 ## Configuration
@@ -198,11 +198,13 @@ pinball/
 ├── LICENSE             # MIT
 ├── README.md
 └── src/
-    └── index.ts        # Extension entry point (~1000 lines, no dependencies)
+    ├── index.ts        # Extension entry point: hooks, state, config, command registration
+    └── commands.ts     # Lazy-loaded /pinball UI and command handlers
 ```
 
-Single-file, zero-dependency extension (only pi's bundled `@earendil-works/pi-coding-agent` + Node built-ins):
+Zero-dependency extension (only pi's bundled `@earendil-works/pi-coding-agent` + Node built-ins):
 
+- **Small startup path** — `src/index.ts` registers hooks and `/pinball`; interactive command UI loads on demand via dynamic `import()`
 - **Error classification** — regex sets for bounce-worthy vs. context-overflow errors, defensive `stopReason` normalization
 - **Bounce core** — target selection (skipping cooldowns), budget accounting, bounce log
 - **Detection hooks** — `after_provider_response`, `message_end`, `agent_settled`

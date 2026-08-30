@@ -1,6 +1,6 @@
 {
   "name": "pi-pinball",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "pi provider failover: auto-switch and retry on rate limits, quota errors, or 5xx.",
   "keywords": [
     "pi-package",

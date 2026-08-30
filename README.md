@@ -1,6 +1,6 @@
 <div align="center">
 
-![Pinball banner](docs/banner.jpeg)
+![Pinball banner](https://raw.githubusercontent.com/noguerol/pinball/main/docs/banner.jpeg)
 
 </div>
 

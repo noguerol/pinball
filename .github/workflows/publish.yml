@@ -42,4 +42,4 @@ jobs:
           fi
       - name: Publish to npm (Trusted Publishing / OIDC)
         if: steps.check.outputs.exists == 'false'
-        run: npm publish
+        run: npm publish --provenance --access public

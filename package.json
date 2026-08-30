@@ -25,7 +25,7 @@
     "extensions": [
       "./src/index.ts"
     ],
-    "image": "https://raw.githubusercontent.com/noguerol/pinball/main/docs/preview.png"
+    "image": "https://raw.githubusercontent.com/noguerol/pinball/main/docs/preview.jpeg"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"

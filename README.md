@@ -1,6 +1,6 @@
 <div align="center">
 
-![Pinball banner](docs/banner.png)
+![Pinball banner](docs/banner.jpeg)
 
 </div>
 

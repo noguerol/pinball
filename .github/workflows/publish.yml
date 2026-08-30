@@ -22,6 +22,15 @@ jobs:
         run: |
           echo "name=$(node -p "require('./package.json').name")" >> "$GITHUB_OUTPUT"
           echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Debug OIDC claims (temp)
+        run: |
+          curl -s -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=sigstore" -o /tmp/oidc.json
+          python3 -c "
+import json, base64
+claims = json.loads(base64.urlsafe_b64decode(json.load(open('/tmp/oidc.json'))['value'].split('.')[1] + '=='))
+for k in ['aud','repository','repository_owner','workflow_ref','job_workflow_ref','ref','ref_type','environment','actor','sha']:
+    print(f'{k}: {claims.get(k)}')
+"
       - name: Check if version is already published
         id: check
         run: |

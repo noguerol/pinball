@@ -23,7 +23,7 @@ It works in interactive sessions **and** in headless spawned processes (`pi -p`,
 - **Smart error classification** — bounce-worthy errors vs. context overflow (pi handles that with compaction, not switching)
 - **Provider tester** — one keystroke to check connectivity/latency of every configured model
 - **Interactive everything** — native pi menus for every setting; no config file editing required
-- **Status bar widget** — a persistent `🕹️ pinball` indicator with live failure count
+- **Status bar widget** — a compact `🎯 (on)` footer indicator with live cooldown count; hidden entirely while pinball is off
 
 ## Install
 
@@ -65,7 +65,7 @@ That's it. The next time a provider returns `429 Too Many Requests` mid-task:
 🔄 provider/x → provider/y; retrying…
 ```
 
-… and the task continues on `provider/y`. A `🕹️ pinball(1)` marker in the status bar shows one model in cooldown.
+… and the task continues on `provider/y`. A `🎯 (on 1)` marker in the footer shows one model in cooldown (plain `🎯 (on)` when everything is healthy; the indicator disappears when pinball is disabled).
 
 ## How It Works
 

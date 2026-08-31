@@ -125,9 +125,10 @@ export default function pinballExtension(pi: ExtensionAPI) {
   }
   function updateStatus(ctx: ExtensionContext) {
     const cfg = ensureConfig();
-    if (!cfg.enabled) return ctx.ui.setStatus("pinball", undefined);
+    if (!cfg.enabled) { ctx.ui.setStatus("pinball", undefined); return; }
     const failures = countActiveFailures(state, cfg.cooldownMs);
-    ctx.ui.setStatus("pinball", failures > 0 ? `🕹️ pinball(${failures})` : "🕹️ pinball");
+    const label = failures > 0 ? `🎯 (on ${failures})` : "🎯 (on)";
+    ctx.ui.setStatus("pinball", ctx.ui.theme.fg(failures > 0 ? "warning" : "success", label));
   }
   const runtime: PinballRuntime = {
     getConfig: ensureConfig,
@@ -191,6 +192,7 @@ export default function pinballExtension(pi: ExtensionAPI) {
     if (state.consecutiveFailures > maxAttempts) {
       state.gaveUp = true;
       ctx.ui.notify(`pinball: ${maxAttempts} attempts exhausted; stopped (/pinball reset).`, "Error");
+      updateStatus(ctx);
       return null;
     }
 
@@ -199,10 +201,12 @@ export default function pinballExtension(pi: ExtensionAPI) {
       if (!target) break;
       if (await bounceToModel(ctx, target)) {
         if (config.notifyOnBounce) ctx.ui.notify(`🔄 ${failedKey} → ${modelKey(target)} (${shorten(errorText)})`, "info");
+        updateStatus(ctx);
         return target;
       }
     }
     ctx.ui.notify(`pinball: no models (${shorten(errorText)}).`, "Error");
+    updateStatus(ctx);
     return null;
   }
 

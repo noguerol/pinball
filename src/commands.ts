@@ -1,4 +1,138 @@
+import { Container, SelectList, Spacer, Text, truncateToWidth } from "@earendil-works/pi-tui";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+
+interface SelectItem<T> { value: T; label: string; description?: string }
+interface ListTheme {
+  selectedPrefix: (t: string) => string;
+  selectedText: (t: string) => string;
+  description: (t: string) => string;
+  scrollInfo: (t: string) => string;
+  noMatch: (t: string) => string;
+}
+
+// pi-tui's SelectList only renders item descriptions when `width > 40` and the
+// space left after the label column exceeds 10 cells, so descriptions silently
+// vanish on narrow terminals. This subclass keeps SelectList's key handling but
+// renders every option on two lines (label + muted description) at any width,
+// matching pi's built-in settings menu.
+export class DescribedSelectList extends SelectList {
+  private readonly sourceItems: Array<SelectItem<string>>;
+  private readonly visibleCount: number;
+  private readonly listTheme: ListTheme;
+  private cursor = 0;
+
+  constructor(items: Array<SelectItem<string>>, maxVisible: number, theme: ListTheme, layout?: object) {
+    super(items as never, maxVisible, theme as never, layout as never);
+    this.sourceItems = items;
+    this.visibleCount = maxVisible;
+    this.listTheme = theme;
+    // Mirror the base list's cursor so we can render our own two-line rows.
+    this.onSelectionChange = (item) => {
+      const picked = item as SelectItem<string> | undefined;
+      if (!picked) return;
+      let i = this.sourceItems.indexOf(picked);
+      if (i < 0) i = this.sourceItems.findIndex((it) => it.value === picked.value && it.label === picked.label);
+      if (i >= 0) this.cursor = i;
+    };
+  }
+
+  setSelectedIndex(index: number) {
+    super.setSelectedIndex(index);
+    this.cursor = Math.max(0, Math.min(index, this.sourceItems.length - 1));
+  }
+
+  render(width: number): string[] {
+    const items = this.sourceItems;
+    const theme = this.listTheme;
+    if (items.length === 0) return [theme.noMatch("  No matching commands")];
+
+    const total = items.length;
+    const maxVisible = Math.max(1, Math.min(this.visibleCount, total));
+    const selected = Math.min(Math.max(0, this.cursor), total - 1);
+    const startIndex = Math.max(0, Math.min(selected - Math.floor(maxVisible / 2), total - maxVisible));
+    const endIndex = Math.min(startIndex + maxVisible, total);
+    const w = Math.max(12, width);
+
+    const lines: string[] = [];
+    for (let i = startIndex; i < endIndex; i++) {
+      const item = items[i];
+      const isSelected = i === selected;
+      const prefix = isSelected ? "\u2192 " : "  ";
+      const label = truncateToWidth(item.label || String(item.value), Math.max(1, w - 2), "\u2026");
+      lines.push(isSelected ? theme.selectedText(`${prefix}${label}`) : `${prefix}${label}`);
+      if (item.description) {
+        const desc = truncateToWidth(item.description.replace(/\s+/g, " ").trim(), Math.max(1, w - 4), "\u2026");
+        lines.push(`  ${theme.description(desc)}`);
+      }
+    }
+    if (startIndex > 0 || endIndex < total) {
+      lines.push(theme.scrollInfo(`  (${selected + 1}/${total})`));
+    }
+    return lines;
+  }
+}
+
+// Native-style submenu: a titled list where each option shows a muted
+// description line beneath it, exactly like pi's built-in settings menu.
+interface MenuOptions {
+  title: string;
+  description?: string;
+  items: Array<SelectItem<string>>;
+  hint?: string;
+}
+export class ConfigSubmenu extends Container {
+  private list: SelectList;
+  private items: Array<SelectItem<string>>;
+  private onSelectCb?: (value: string | undefined) => void;
+  private onCancelCb?: () => void;
+
+  constructor(opts: MenuOptions, onSelect, onCancel, theme) {
+    super();
+    this.items = opts.items;
+    this.onSelectCb = onSelect as (value: string | undefined) => void;
+    this.onCancelCb = onCancel;
+    // Title
+    this.addChild(new Text(theme.bold(theme.fg("accent", opts.title)), 0, 0));
+    // Description line
+    if (opts.description) {
+      this.addChild(new Spacer(1));
+      this.addChild(new Text(theme.fg("muted", opts.description), 0, 0));
+    }
+    // Select list (two lines per option: label + muted description)
+    this.addChild(new Spacer(1));
+    this.list = new DescribedSelectList(
+      this.items.map((it) => ({ value: it.label, label: it.label, description: it.description })),
+      Math.min(this.items.length, 6),
+      {
+        selectedPrefix: (t: string) => theme.fg("accent", t),
+        selectedText: (t: string) => theme.fg("accent", t),
+        description: (t: string) => theme.fg("muted", t),
+        scrollInfo: (t: string) => theme.fg("muted", t),
+        noMatch: (t: string) => theme.fg("muted", t),
+      },
+      { minPrimaryColumnWidth: 12, maxPrimaryColumnWidth: 32 },
+    );
+    this.list.onSelect = (item) => {
+      const idx = this.items.findIndex((it) => it.label === item?.value);
+      this.onSelectCb?.(idx >= 0 ? this.items[idx].value : undefined);
+    };
+    this.list.onCancel = () => this.onCancelCb?.();
+    this.addChild(this.list);
+    // Hint
+    this.addChild(new Spacer(1));
+    this.addChild(new Text(theme.fg("dim", opts.hint ?? "  Enter to select · Esc to go back"), 0, 0));
+  }
+  handleInput(data: string) {
+    // SelectList already matches tui.select.up/down/confirm/cancel against the
+    // live keybindings. Forward raw input directly; fall back to vi-style
+    // k/j only when the terminal delivered an unmapped single char.
+    if (data === "k" || data === "j") {
+      this.list.handleInput(data === "k" ? "\u001b[A" : "\u001b[B");
+    } else {
+      this.list.handleInput(data);
+    }
+  }
+}
 
 interface PinballModel { provider: string; id: string; name?: string; reasoning?: boolean }
 interface PinballConfig { enabled: boolean; maxRetries: number; cooldownMs: number; notifyOnBounce: boolean; models: PinballModel[] }
@@ -20,6 +154,28 @@ function formatDuration(ms: number) {
   return `${Math.round(ms / 3_600_000)}h`;
 }
 
+// Renders a native-style submenu and resolves with the chosen value.
+// Each option displays a muted description line beneath its label,
+// exactly like pi's built-in settings menu.
+async function showSubmenu<T>(
+  ctx: ExtensionContext,
+  opts: MenuOptions,
+): Promise<T | undefined> {
+  if (ctx.mode !== "tui" || !ctx.hasUI) return undefined;
+  const ui = ctx.ui as any;
+  if (typeof ui.custom !== "function") {
+    // Fallback to the built-in selector (no per-line descriptions).
+    const strings = opts.items.map((it) => it.description ? `${it.label} — ${it.description}` : it.label);
+    const picked = await ui.select(opts.title, strings);
+    if (picked === undefined) return undefined;
+    const idx = opts.items.findIndex((it) => it.label === picked);
+    return (idx >= 0 ? opts.items[idx].value : undefined) as T;
+  }
+  return ui.custom<string>((_tui, theme, _keybindings, done) => {
+    return new ConfigSubmenu<T>(opts, (v) => done(v as string), () => done(undefined), theme);
+  });
+}
+
 type PinballRuntime = {
   getConfig(): PinballConfig;
   saveConfig(config?: PinballConfig): void;
@@ -35,10 +191,12 @@ function selectFrom<T>(
   title: string,
   items: Array<{ value: T; label: string; description?: string }>
 ): Promise<T | undefined> {
-  const strings = items.map((it) => it.description ? `${it.label} — ${it.description}` : it.label);
-  return ctx.ui.select(title, strings).then((picked) => {
+  return showSubmenu(ctx, {
+    title,
+    items: items.map((it) => ({ value: String(it.value), label: it.label, description: it.description })),
+  }).then((picked) => {
     if (picked === undefined) return undefined;
-    const idx = strings.indexOf(picked);
+    const idx = items.findIndex((it) => String(it.value) === picked);
     return idx >= 0 ? items[idx].value : undefined;
   });
 }
@@ -85,15 +243,15 @@ async function showStatus(ctx: ExtensionContext, rt: PinballRuntime) {
 async function showConfigMenu(pi: ExtensionAPI, ctx: ExtensionContext, rt: PinballRuntime) {
   const config = rt.getConfig();
   const action = await selectFrom(ctx, "🔄 Pinball", [
-    { value: "toggle", label: config.enabled ? "🟢 Disable" : "🔴 Enable", description: config.enabled ? "on" : "off" },
-    { value: "list", label: "📋 Models", description: `${config.models.length}` },
-    { value: "add", label: "➕ Add", description: "provider/model" },
-    { value: "remove", label: "➖ Remove", description: "from list" },
-    { value: "test", label: "🧪 Test", description: "connectivity" },
-    { value: "cooldown", label: `⏱️ Cooldown: ${formatDuration(config.cooldownMs)}`, description: "after error" },
-    { value: "retries", label: `🔁 Retries: ${config.maxRetries}`, description: "per model" },
-    { value: "notify", label: `🔔 Notify: ${config.notifyOnBounce ? "on" : "off"}`, description: "bounce alerts" },
-    { value: "reset", label: "🔃 Reset", description: "cooldowns" },
+    { value: "toggle", label: config.enabled ? "🟢 Disable" : "🔴 Enable", description: config.enabled ? "Switch auto-failover off" : "Switch auto-failover on" },
+    { value: "list", label: "📋 Models", description: `${config.models.length} models in bounce order` },
+    { value: "add", label: "➕ Add", description: "Choose a provider/model to fail over to" },
+    { value: "remove", label: "➖ Remove", description: "Drop a model from the bounce list" },
+    { value: "test", label: "🧪 Test", description: "Probe connectivity / API keys" },
+    { value: "cooldown", label: `⏱️ Cooldown: ${formatDuration(config.cooldownMs)}`, description: "How long a failed model rests after an error" },
+    { value: "retries", label: `🔁 Retries: ${config.maxRetries}`, description: `Failover attempts per model (× ${config.models.length})` },
+    { value: "notify", label: `🔔 Notify: ${config.notifyOnBounce ? "on" : "off"}`, description: "Pop up alerts when switching models" },
+    { value: "reset", label: "🔃 Reset", description: "Clear cooldowns and retry counters" },
   ]);
   if (!action) return;
 

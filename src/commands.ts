@@ -208,8 +208,10 @@ async function showConfigMenuNative(
   const ui = ctx.ui as any;
   if (typeof ui.custom !== "function") return undefined;
 
+
   const config = rt.getConfig();
   return ui.custom<string>((_tui, theme, _keybindings, done) => {
+
     const items = [
       {
         id: "toggle",
@@ -281,6 +283,7 @@ async function showConfigMenuNative(
       () => done(undefined),
     );
     list.onSelect = (id) => done(id);
+
     return list;
   });
 }
